@@ -4,6 +4,8 @@
 
 ## 运行在 GitHub
 
+逐步手动部署请读 [DEPLOY.md](DEPLOY.md)，包含上传、登录、Codespaces、HTTPS 验收和排错。无需连接 Codex GitHub 插件。
+
 1. 把本目录作为独立仓库上传 GitHub，创建该仓库的 Codespace。
 2. 开发容器会安装两个 Python 依赖并启动服务。查看 `/tmp/vdc-demo.log`。
 3. 在 Codespaces 的 **PORTS** 面板把 **8000 → Port Visibility → Public**。
@@ -19,13 +21,13 @@ Codespace 停止或休眠后网址不能访问。演示前启动同一个 Codesp
 ## 本地运行
 
 ```sh
-./run.sh
+sh ./run.sh
 ```
 
 打开 `http://127.0.0.1:8000`。普通局域网 HTTP 不用于真实 iPhone 系统 API 演示。若已有外部 HTTPS 反向代理，可显式指定：
 
 ```sh
-PUBLIC_ORIGIN=https://demo.example ./run.sh --port 8000
+PUBLIC_ORIGIN=https://demo.example sh ./run.sh --port 8000
 ```
 
 在 Codespaces 中无需填写 PUBLIC_ORIGIN；服务从 CODESPACE_NAME 和转发域自动确定。**来源固定为配置值，不信任客户端的 Host/X-Forwarded-* 头**，避免代理配置错误或任意来源请求。

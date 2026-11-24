@@ -14,6 +14,9 @@ async function api(path, body) {
     body: body === undefined ? undefined : JSON.stringify(body),
     signal: AbortSignal.timeout(15000),
   });
+  if (!response.headers.get('Content-Type')?.includes('application/json')) {
+    throw new Error('服务未返回 JSON。Codespaces 请确认 8000 端口为 Public，且服务正在运行');
+  }
   const value = await response.json();
   if (!response.ok) throw new Error(value.error || '服务请求失败');
   return value;
@@ -92,6 +95,8 @@ $('present').onclick = async () => {
     if (credential?.protocol !== 'org-iso-mdoc' || typeof credential.data?.response !== 'string') {
       throw new Error('系统没有返回有效的 org-iso-mdoc 响应');
     }
+    clearTimeout(expiryTimer);
+    $('cancel').hidden = true;
     showStatus('已收到加密响应，正在验证发行签名、设备证明与会话…');
     const result = await api('/api/mdoc/verify', {id: current.id, response: credential.data.response});
     if (result.ok !== true) throw new Error('服务未确认验证成功');

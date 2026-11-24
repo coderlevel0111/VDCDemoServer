@@ -6,5 +6,5 @@
     "8000": {"label": "Apple VDC Demo", "protocol": "http", "onAutoForward": "notify"}
   },
   "postCreateCommand": "python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt",
-  "postStartCommand": "nohup .venv/bin/python server.py > /tmp/vdc-demo.log 2>&1 < /dev/null &"
+  "postStartCommand": "nohup sh ./run.sh > /tmp/vdc-demo.log 2>&1 < /dev/null &"
 }
