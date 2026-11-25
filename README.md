@@ -1,6 +1,10 @@
 # Apple VDC Demo · GitHub Codespaces
 
-一个 Python 服务，同时提供网页与 mdoc API。网站通过 Safari 的 Digital Credentials API 请求 iOS App 中的校园凭证，服务端执行真实解密和验证。只有固定虚构学生资料，不模拟成功结果。
+当前固定使用 `org.iso.18013.5.1.mDL` / `org.iso.18013.5.1`，请求 `age_over_18` 和 `document_number`。旧校园凭证需要重新领取。
+
+更新运行中的服务请读 [MDL-UPGRADE.md](MDL-UPGRADE.md)。本地修改不会自动更新 Codespaces。
+
+一个 Python 服务，同时提供网页与 mdoc API。网站通过 Safari 的 Digital Credentials API 请求 iOS App 中的mDL 测试凭证，服务端执行真实解密和验证。只有固定虚构 mDL资料，不模拟成功结果。
 
 ## 运行在 GitHub
 
@@ -36,9 +40,9 @@ PUBLIC_ORIGIN=https://demo.example sh ./run.sh --port 8000
 
 公网 HTTPS 解决了网站连接与证书问题，不会授予 App 系统文档权限。宿主与扩展仍需相同开发者 Team、共享 Keychain、对应文档类型 entitlement 和有效 provisioning。
 
-当前类型为 `org.example.vdc.campus.1`。它能否被真实 Team 授权需要用户核实；不能只手写 entitlement，也不会伪装成驾照。此前模拟签名注册返回 notAuthorized，尚未证明完整 Safari 系统选择链路在真机通过。
+当前固定类型为 `org.iso.18013.5.1.mDL`、namespace 为 `org.iso.18013.5.1`，仅签发虚构 mDL 测试子集，非真实驾照。实际 provisioning 和用户授权仍需核实。此前模拟签名注册返回 notAuthorized，尚未证明完整 Safari 系统选择链路在真机通过。
 
-接口与现有 `SystemWalletView.swift`、`MDocEngine.swift` 保持兼容。网页只使用真实 `navigator.credentials.get({digital:...})`，没有 URL Scheme 回退、手动会话 ID 或假钱包。iOS App 请选“系统凭证”；旧“基础实验”接口不再由这个简化服务提供。
+接口与现有 `SystemWalletView.swift`、`MDocEngine.swift` 保持兼容。网页只使用真实 `navigator.credentials.get({digital:...})`，没有 URL Scheme 回退、手动会话 ID 或假钱包。iOS App 直接进入 mDL 测试钱包；旧“基础实验”接口不再由这个简化服务提供。
 
 ## 文件
 
@@ -56,7 +60,7 @@ PUBLIC_ORIGIN=https://demo.example sh ./run.sh --port 8000
 | --- | --- |
 | GET /health | 服务健康 |
 | GET /api/mdoc/config | origin、类型、公开根证书及核对指纹；所有值保留为字符串以兼容 App |
-| POST /api/mdoc/issue | 设备公钥 → 虚构校园 mdoc |
+| POST /api/mdoc/issue | 设备公钥 → 虚构虚构 mDL |
 | POST /api/mdoc/request | origin → 签名的一次性系统请求 |
 | POST /api/mdoc/verify | 加密响应 → 真实验证结果 |
 | POST /api/mdoc/revoke | 每卡撤销令牌 → 撤销 |

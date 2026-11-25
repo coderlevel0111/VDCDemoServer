@@ -7,23 +7,37 @@ class MDocTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.db=sqlite3.connect(':memory:');self.lab=MDocLab(self.tmp.name,self.db,'https://127.0.0.1:8443');self.key=ec.generate_private_key(ec.SECP256R1());self.card=self.lab.issue({'holder_jwk':jwk(self.key)})
     def tearDown(self):self.db.close();self.tmp.cleanup()
-    def response(self,*,wrong_key=False,wrong_origin=False,tamper=False,extra=False):
+    def response(self,*,wrong_key=False,wrong_origin=False,tamper=False,extra=False,wrong_type=False,wrong_namespace=False):
         req=self.lab.request({'origin':self.lab.origin});ei=dec(unb64(req['data']['encryptionInfo']));st=transcript(req['data']['encryptionInfo'],'https://evil.invalid' if wrong_origin else self.lab.origin)
         signed=dec(unb64(self.card['issuer_signed']));selected=[]
         for item in signed['nameSpaces'][NS]:
             v=dec(item.value)
-            if v['elementIdentifier']=='name' and not extra:continue
-            if tamper and v['elementIdentifier']=='role':v['elementValue']='administrator';item=tagged(v)
+            if v['elementIdentifier'] not in {'age_over_18','document_number'} and not extra:continue
+            if tamper and v['elementIdentifier']=='age_over_18':v['elementValue']=False;item=tagged(v)
             selected.append(item)
-        signed['nameSpaces'][NS]=selected;empty=tagged({});auth=enc(tagged(['DeviceAuthentication',st,DOCTYPE,empty]))
+        signed['nameSpaces']={'org.example.vdc.campus' if wrong_namespace else NS:selected};empty=tagged({});auth=enc(tagged(['DeviceAuthentication',st,DOCTYPE,empty]))
         signature=cose_sign(ec.generate_private_key(ec.SECP256R1()) if wrong_key else self.key,auth,detached=True)
-        plain=enc(dict(version='1.0',documents=[dict(docType=DOCTYPE,issuerSigned=signed,deviceSigned=dict(nameSpaces=empty,deviceAuth=dict(deviceSignature=signature)))],status=0))
+        plain=enc(dict(version='1.0',documents=[dict(docType='org.example.vdc.campus.1' if wrong_type else DOCTYPE,issuerSigned=signed,deviceSigned=dict(nameSpaces=empty,deviceAuth=dict(deviceSignature=signature)))],status=0))
         from mdoc import cose_public
         e,c=hpke_seal(cose_public(ei[1]['recipientPublicKey']),plain,enc(st));return dict(id=req['id'],response=b64(enc(['dcapi',dict(enc=e,cipherText=c)])))
     def test_success_selective_disclosure_and_replay(self):
-        r=self.response();result=self.lab.verify(r);self.assertNotIn('name',result['disclosed']);self.assertTrue(result['ok'])
+        r=self.response();result=self.lab.verify(r);self.assertEqual(set(result['disclosed']), {'age_over_18','document_number'});self.assertIs(result['disclosed']['age_over_18'], True);self.assertTrue(result['ok'])
         self.assertEqual(self.db.execute('SELECT recipient FROM mdoc_requests WHERE id=?',(r['id'],)).fetchone()[0], b'')
         with self.assertRaisesRegex(ValueError,'REPLAY'):self.lab.verify(r)
+    def test_only_mdl_profile_is_issued_and_requested(self):
+        self.assertEqual(self.lab.config()['doc_type'], 'org.iso.18013.5.1.mDL')
+        self.assertEqual(self.lab.config()['namespace'], 'org.iso.18013.5.1')
+        signed=dec(unb64(self.card['issuer_signed']))
+        mso=dec(dec(signed['issuerAuth'][2]).value)
+        self.assertEqual(mso['docType'], 'org.iso.18013.5.1.mDL')
+        self.assertEqual(set(mso['valueDigests']), {'org.iso.18013.5.1'})
+        request=self.lab.request({'origin':self.lab.origin})
+        items=dec(dec(unb64(request['data']['deviceRequest']))['docRequests'][0]['itemsRequest'].value)
+        self.assertEqual(items, {'docType':'org.iso.18013.5.1.mDL','nameSpaces':{'org.iso.18013.5.1':{'age_over_18':False,'document_number':False}}})
+    def test_legacy_document_type_is_rejected(self):
+        with self.assertRaisesRegex(ValueError,'文档类型'):self.lab.verify(self.response(wrong_type=True))
+    def test_legacy_namespace_is_rejected(self):
+        with self.assertRaisesRegex(ValueError,'namespace'):self.lab.verify(self.response(wrong_namespace=True))
     def test_wrong_device_key(self):
         with self.assertRaises(Exception):self.lab.verify(self.response(wrong_key=True))
     def test_wrong_origin(self):

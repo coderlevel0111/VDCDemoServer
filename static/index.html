@@ -3,24 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>校园凭证验证 · Apple VDC Demo</title>
+  <title>mDL 测试凭证验证 · Apple VDC Demo</title>
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" defer></script>
 </head>
 <body>
-  <header class="site-header"><span>校园凭证实验室</span><a href="#setup">首次使用</a></header>
+  <header class="site-header"><span>mDL 凭证实验室</span><a href="#setup">首次使用</a></header>
   <main>
     <section class="intro">
-      <h1>用 iPhone 里的校园凭证，<br>验证你的学生身份。</h1>
+      <h1>用 iPhone 里的 mDL 测试凭证，<br>演示年龄证明。</h1>
       <p>网站发起请求，iOS 帮你选择凭证。你同意后，网站收到加密证明并验证。</p>
     </section>
     <div class="workspace">
       <section class="verification" aria-labelledby="verify-title">
-        <h2 id="verify-title">图书馆入馆验证</h2>
+        <h2 id="verify-title">已满 18 岁验证（虚构数据）</h2>
         <dl class="claims">
-          <div><dt>需要的信息</dt><dd>学校、学生身份、凭证编号</dd></div>
-          <div><dt>验证目的</dt><dd>确认入馆资格；凭证编号用于检查撤销状态</dd></div>
-          <div><dt>披露范围</dt><dd>不请求姓名；设备公钥等证明元数据仍会发送</dd></div>
+          <div><dt>需要的信息</dt><dd>已满 18 岁、文档编号</dd></div>
+          <div><dt>验证目的</dt><dd>演示年龄门槛；文档编号用于检查撤销状态</dd></div>
+          <div><dt>披露范围</dt><dd>不请求姓名与出生日期；设备公钥等证明元数据仍会发送</dd></div>
         </dl>
         <p id="environment" class="environment" role="status">正在检查浏览器和服务…</p>
         <div class="actions">
@@ -28,9 +28,9 @@
           <button id="present" type="button" hidden>使用 iPhone 凭证</button>
           <button id="cancel" type="button" class="secondary" hidden>取消</button>
         </div>
-        <p id="status" class="status" role="status" aria-live="polite">先在 App 领取并注册校园凭证，再开始验证。</p>
+        <p id="status" class="status" role="status" aria-live="polite">先在 App 领取并注册 mDL 测试凭证，再开始验证。</p>
         <section id="result" class="result" hidden aria-labelledby="result-title">
-          <h3 id="result-title">验证通过，可以入馆</h3>
+          <h3 id="result-title">mDL 测试凭证验证通过</h3>
           <dl id="disclosed" class="claims"></dl>
           <details><summary>查看服务端检查</summary><ul id="checks"></ul></details>
         </section>
@@ -38,7 +38,7 @@
       <aside id="setup" aria-labelledby="setup-title">
         <h2 id="setup-title">第一次演示</h2>
         <ol>
-          <li>在 iOS App“系统凭证”中填写下方地址。</li>
+          <li>在 iOS App 中填写下方地址。</li>
           <li>连接服务，核对发行和 Reader 根指纹，领取并允许系统注册。</li>
           <li>在 iOS 26+ Safari 打开此网页，准备验证后点击出示。</li>
         </ol>
@@ -55,6 +55,6 @@
       <p>把这里的两个根指纹与服务终端输出核对。只显示浏览器能力，不假定系统里已经注册了文档。</p>
     </details>
   </main>
-  <footer>仅用于 Apple 系统凭证能力演示 · 固定虚构资料 · 无模拟成功或深链接回退</footer>
+  <footer>仅用于 Apple 系统凭证能力演示 · 固定虚构资料，非真实驾照 · 无模拟成功或深链接回退</footer>
 </body>
 </html>

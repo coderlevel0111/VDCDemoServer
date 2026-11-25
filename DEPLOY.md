@@ -1,5 +1,6 @@
 # 手动部署：GitHub 仓库 + Codespaces + HTTPS
 
+当前配置以 [第 13 章：mDL 三端统一与升级](MDL-UPGRADE.md) 为准；旧校园卡截图及历史验证记录不代表当前 profile。
 本章适用于 2026-11-24 的简化 Demo。你在自己的浏览器和终端操作即可，不依赖 Codex 的 GitHub 插件。前提是 GitHub 账号可正常建仓库并使用 Codespaces；手动操作不能解除 suspended 限制，账号问题需要通过 GitHub 支持处理。
 
 ## 1. 最终会得到什么
@@ -7,7 +8,7 @@
 | 部分 | 放在哪里 | 作用 |
 | --- | --- | --- |
 | iOS App 和凭证扩展 | 本地 `VDCDemo`，用 Xcode 安装到 iPhone | 持有凭证、系统注册、用户授权、出示 |
-| 网页和后端 | 将 `VDCDemoServer` 单独上传 GitHub，运行在 Codespaces | 签发虚构校园凭证、生成请求、解密验证 |
+| 网页和后端 | 将 `VDCDemoServer` 单独上传 GitHub，运行在 Codespaces | 签发虚构mDL 测试凭证、生成请求、解密验证 |
 | 知识文档 | 本地 `VDCDemoDoc`；仓库内另有本章副本 `DEPLOY.md` | 入门、配置、部署、排错 |
 
 最终访问地址类似 `https://<codespace-name>-8000.app.github.dev`，不是 `github.com/用户名/仓库`，也不是 `用户名.github.io`。
@@ -159,16 +160,16 @@ https://实际的-codespace-name-8000.app.github.dev
 ## 6. iPhone 演示顺序
 
 1. 用 Xcode 安装正确签名的宿主 App 与扩展。开发团队、文档类型、共享 Keychain 和实际 provisioning 见第 09 章。这里只部署服务器，不改变 iOS 签名配置。
-2. App 选择“系统凭证”，填写第 4 步得到的公网 HTTPS origin。
+2. App 直接进入系统凭证页，填写第 4 步得到的公网 HTTPS origin。
 3. 连接服务，用可信的 Codespaces 终端输出核对 App 中的发行根和 Reader 根指纹，再建立信任。仅网页自己显示一个指纹不能独立证明它可信。
-4. 领取固定虚构校园凭证，执行系统注册；先确认注册成功。
+4. 领取固定虚构mDL 测试凭证，执行系统注册；先确认注册成功。
 5. 在 iOS 26+ Safari 顶层页面打开同一网站。点击“准备验证”，服务器建立短有效期请求。
 6. 再点击“使用 iPhone 凭证”。网页在这次用户点击中直接调用 Digital Credentials API，交给系统选择与授权。
 7. 扩展验证 ReaderAuth 与来源，返回选定字段、设备持钥证明及加密响应。服务端解密验证后，网页才显示“验证通过”。
 
-网站没有模拟成功或 URL Scheme 回退；旧 App“基础实验”页和旧 `/lab` API 不在这版后端中。
+网站没有模拟成功或 URL Scheme 回退；App 已移除“基础实验”，后端也已移除旧 `/lab` API。iOS 当前实现与测试说明见第 12 章。
 
-**已知边界：** 目前尚未完成真实 iPhone Safari 全链路验收。此前模拟签名注册返回 notAuthorized；自定义类型 `org.example.vdc.campus.1` 能否获得你团队的实际授权，必须用 provisioning 与真机系统注册确认。公网 HTTPS、网页有 API、协议测试通过都不能替代这一步。
+**已知边界：** 目前尚未完成真实 iPhone Safari 全链路验收。此前模拟签名注册返回 notAuthorized；mDL 类型 `org.iso.18013.5.1.mDL` 能否获得你团队的实际授权，必须用 provisioning 与真机系统注册确认。公网 HTTPS、网页有 API、协议测试通过都不能替代这一步。
 
 本次网站部署不用增加 AASA 或 Universal Links。网页调用系统 Digital Credentials API，协议与扩展校验网站来源和 Reader 信任；App 本身的凭证能力与文档类型权限仍然需要。安全原理见第 10 章。
 
@@ -225,7 +226,7 @@ git pull --ff-only
 
 ## 9. 本次验证与文件边界
 
-后端保留 13 项可运行测试：mdoc 合法选择披露、官方 RFC 9180 HPKE 向量、篡改/重放/换钥/错来源/撤销/过期拒绝，以及代理来源、输入与私有文件访问检查。在 Codespaces 中可执行：
+后端保留 16 项可运行测试：mdoc 合法选择披露、官方 RFC 9180 HPKE 向量、篡改/重放/换钥/错来源/撤销/过期拒绝，以及代理来源、输入与私有文件访问检查。在 Codespaces 中可执行：
 
 ```sh
 .venv/bin/python -m unittest -v

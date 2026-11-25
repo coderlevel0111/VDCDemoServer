@@ -1,4 +1,4 @@
-"""Bounded local ISO mdoc / org-iso-mdoc profile. Fictional campus, pinned lab PKI.
+"""Bounded local ISO mdoc / org-iso-mdoc profile. Fictional mDL subset, pinned lab PKI.
 Not a production ISO conformance implementation. See docs for supported subset.
 """
 import datetime as dt, hashlib, hmac, secrets, time, uuid
@@ -12,9 +12,10 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDFExpand
 from crypto_utils import b64, unb64, jwk, public
 
-DOCTYPE='org.example.vdc.campus.1'
-NS='org.example.vdc.campus'
-CLAIMS={'name':'小明（虚构）','school':'VDC 实验大学','role':'student'}
+DOCTYPE='org.iso.18013.5.1.mDL'
+NS='org.iso.18013.5.1'
+# Restricted fictional test subset, not a complete ISO mDL or a real driving licence.
+CLAIMS={'given_name':'DEMO ONLY','family_name':'NOT A REAL LICENCE','age_over_18':True}
 def enc(x): return cbor.dumps(x)
 def dec(x):
     if len(x)>131072: raise ValueError('CBOR too large')
@@ -84,7 +85,7 @@ class MDocLab:
     def issue(self,b):
         holder=public(b['holder_jwk']); n=holder.public_numbers();now=int(time.time());ident=str(uuid.uuid4());secret=secrets.token_urlsafe(32)
         items=[];digests={}
-        for index,(name,value) in enumerate(dict(CLAIMS,credential_id=ident).items()):
+        for index,(name,value) in enumerate(dict(CLAIMS,document_number=ident).items()):
             item=tagged(dict(digestID=index,random=secrets.token_bytes(32),elementIdentifier=name,elementValue=value))
             items.append(item);digests[index]=hashlib.sha256(enc(item)).digest()
         mso=dict(version='1.0',digestAlgorithm='SHA-256',valueDigests={NS:digests},deviceKeyInfo=dict(deviceKey={1:2,-1:1,-2:n.x.to_bytes(32,'big'),-3:n.y.to_bytes(32,'big')}),docType=DOCTYPE,validityInfo=dict(signed=date_tag(now),validFrom=date_tag(now-2),validUntil=date_tag(now+3600)))
@@ -96,7 +97,7 @@ class MDocLab:
         if b.get('origin')!=self.origin: raise ValueError('网页 origin 与 --origin 配置不一致')
         self.db.execute('DELETE FROM mdoc_requests WHERE expires <= ?', (int(time.time()),))
         key=ec.generate_private_key(ec.SECP256R1());ei=b64(enc(['dcapi',dict(nonce=secrets.token_bytes(32),recipientPublicKey=pub_cose(key))]));st=transcript(ei,self.origin)
-        items=tagged(dict(docType=DOCTYPE,nameSpaces={NS:dict(role=False,school=False,credential_id=False)}))
+        items=tagged(dict(docType=DOCTYPE,nameSpaces={NS:dict(age_over_18=False,document_number=False)}))
         reader_auth=enc(tagged(['ReaderAuthentication',st,items]))
         auth=cose_sign(self.reader[0],reader_auth,self.reader[1].public_bytes(serialization.Encoding.DER),True)
         auth[1][33]=[self.reader[1].public_bytes(serialization.Encoding.DER),self.reader_ca[1].public_bytes(serialization.Encoding.DER)]
@@ -133,16 +134,16 @@ class MDocLab:
             if index in seen or name in fields:raise ValueError('重复属性')
             if hashlib.sha256(enc(item)).digest()!=mso['valueDigests'][NS][index]:raise ValueError('属性摘要错误')
             seen.add(index);fields[name]=v['elementValue']
-        if set(fields)!={'role','school','credential_id'}:raise ValueError('缺少请求属性或披露额外字段')
-        if fields['role']!='student' or fields['school']!=CLAIMS['school']:raise ValueError('不满足学生入馆政策')
-        card=self.db.execute('SELECT expires,revoked FROM mdoc_cards WHERE id=?',(fields['credential_id'],)).fetchone()
+        if set(fields)!={'age_over_18','document_number'}:raise ValueError('缺少请求属性或披露额外字段')
+        if fields['age_over_18'] is not True:raise ValueError('不满足已满 18 岁的演示政策')
+        card=self.db.execute('SELECT expires,revoked FROM mdoc_cards WHERE id=?',(fields['document_number'],)).fetchone()
         if not card or card[1] or card[0]<=time.time(): raise ValueError('REVOKED：mdoc 已撤销或未知')
         device=doc['deviceSigned'];namespaces=device['nameSpaces']
         if namespaces!=tagged({}):raise ValueError('不支持额外设备声明')
         device_auth=enc(tagged(['DeviceAuthentication',st,DOCTYPE,namespaces]))
         cose_verify(device['deviceAuth']['deviceSignature'],cose_public(mso['deviceKeyInfo']['deviceKey']),device_auth)
         self.db.execute('UPDATE mdoc_requests SET used=1, recipient=? WHERE id=?',(b'', b['id']));self.db.commit()
-        return dict(ok=True,message='系统凭证验证通过，允许进入图书馆',disclosed=fields,checks=['HPKE 解密 / origin 与 nonce 绑定','受信任发行签名','MSO 属性摘要','文档有效期','设备签名持钥证明','撤销与学生政策','一次性请求'],profile='org-iso-mdoc / local campus subset')
+        return dict(ok=True,message='mDL 测试凭证验证通过',disclosed=fields,checks=['HPKE 解密 / origin 与 nonce 绑定','受信任发行签名','MSO 属性摘要','文档有效期','设备签名持钥证明','撤销与年龄演示政策','一次性请求'],profile='org-iso-mdoc / fictional mDL subset')
     def revoke(self,b):
         row=self.db.execute('SELECT secret FROM mdoc_cards WHERE id=?',(b['id'],)).fetchone()
         if not row or not hmac.compare_digest(row[0],b['revoke_token']):raise ValueError('撤销授权错误')

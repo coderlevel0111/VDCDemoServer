@@ -39,16 +39,18 @@ async function initialize() {
     const protocol = available && typeof DigitalCredential.userAgentAllowsProtocol === 'function'
       ? await DigitalCredential.userAgentAllowsProtocol('org-iso-mdoc') : null;
     const sameOrigin = config.origin === location.origin;
-    ready = secure && available && protocol !== false && sameOrigin;
+    const sameProfile = config.doc_type === 'org.iso.18013.5.1.mDL' && config.namespace === 'org.iso.18013.5.1';
+    ready = secure && available && protocol !== false && sameOrigin && sameProfile;
     $('prepare').disabled = !ready;
-    $('environment').textContent = !sameOrigin ? '地址不一致，请用诊断信息中的服务端公开地址打开网页。'
+    $('environment').textContent = !sameProfile ? '服务仍在运行旧配置，请更新并重启后端；本网页仅支持 mDL。'
+      : !sameOrigin ? '地址不一致，请用诊断信息中的服务端公开地址打开网页。'
       : !secure ? '需要 HTTPS。Codespaces 请打开 8000 端口的公网地址。'
       : !available || protocol === false ? '当前浏览器不支持所需入口，请改用兼容的 iOS 26+ Safari。'
       : '浏览器入口可用。实际文档选择与授权由 iOS 和凭证提供方处理。';
     $('diagnostics').textContent = JSON.stringify({
       '当前地址': location.origin, '服务端公开地址': config.origin,
       '安全上下文': secure, '浏览器 API': available, 'org-iso-mdoc': protocol,
-      '文档类型': config.doc_type,
+      '文档类型': config.doc_type, '命名空间': config.namespace,
       '发行根指纹': config.issuer_fingerprint, 'Reader 根指纹': config.reader_fingerprint,
     }, null, 2);
   } catch (error) {
@@ -101,11 +103,11 @@ $('present').onclick = async () => {
     const result = await api('/api/mdoc/verify', {id: current.id, response: credential.data.response});
     if (result.ok !== true) throw new Error('服务未确认验证成功');
     $('disclosed').replaceChildren();
-    const labels = {school: '学校', role: '身份', credential_id: '凭证编号'};
+    const labels = {age_over_18: '已满 18 岁（虚构）', document_number: '文档编号'};
     for (const [key, value] of Object.entries(result.disclosed)) {
       const row = document.createElement('div'), label = document.createElement('dt'), text = document.createElement('dd');
       label.textContent = labels[key] || key;
-      text.textContent = key === 'role' && value === 'student' ? '学生' : String(value);
+      text.textContent = key === 'age_over_18' ? (value === true ? '是' : '否') : String(value);
       row.append(label, text); $('disclosed').append(row);
     }
     $('checks').replaceChildren(...result.checks.map(check => {
