@@ -108,13 +108,18 @@ class Handler(BaseHTTPRequestHandler):
             # Native URLSession requests need no Origin header.
             origin = self.headers.get('Origin')
             if origin and origin != self.server.lab.origin:
-                aliases = {f'http://{host}:{self.server.server_port}' for host in ('localhost', '127.0.0.1', '[::1]')}
+                aliases = {f'{scheme}://{host}:{self.server.server_port}'
+                           for scheme in ('http', 'https')
+                           for host in ('localhost', '127.0.0.1', '[::1]')}
                 token = self.headers.get('X-VDC-Browser-Token', '')
+                fetch_site = self.headers.get('Sec-Fetch-Site', '缺失')
+                token_matches = hmac.compare_digest(token, self.server.browser_token)
                 tunnel_browser = (origin in aliases
-                                  and self.headers.get('Sec-Fetch-Site') == 'same-origin'
-                                  and hmac.compare_digest(token, self.server.browser_token))
+                                  and fetch_site == 'same-origin'
+                                  and token_matches)
                 if not tunnel_browser:
-                    raise ValueError(f'请求来源不受信任：收到 {origin}，网站配置为 {self.server.lab.origin}。请使用配置地址并刷新网页后重试')
+                    token_status = '有效' if token_matches else '缺失或过期'
+                    raise ValueError(f'请求来源不受信任：收到 {origin}，网站配置为 {self.server.lab.origin}；同源标记：{fetch_site}，网页令牌：{token_status}。请使用配置地址并刷新网页后重试')
             if self.headers.get_content_type() != 'application/json':
                 raise ValueError('需要 application/json')
             length = int(self.headers.get('Content-Length', '0'))

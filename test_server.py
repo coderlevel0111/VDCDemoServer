@@ -88,12 +88,18 @@ class ServerTests(unittest.TestCase):
         status, _, data = self.call('POST', '/api/mdoc/request', {'origin': self.origin}, headers)
         self.assertEqual(status, 200, data)
         self.assertEqual(json.loads(data)['protocol'], 'org-iso-mdoc')
-        for change in [{'X-VDC-Browser-Token': ''}, {'X-VDC-Browser-Token': 'wrong'},
-                       {'Sec-Fetch-Site': ''}, {'Sec-Fetch-Site': 'cross-site'}, {'Sec-Fetch-Site': 'same-site'},
-                       {'Origin': 'null'}, {'Origin': 'https://evil.example'}, {'Origin': 'http://localhost:1'}]:
-            with self.subTest(change=change):
-                invalid = dict(headers, **change, **{'X-Forwarded-Host': 'demo-8000.app.github.dev'})
-                self.assertEqual(self.call('POST', '/api/mdoc/request', {'origin': self.origin}, invalid)[0], 400)
+        for scheme in ('http', 'https'):
+            for host in ('localhost', '127.0.0.1', '[::1]'):
+                allowed = dict(headers, Origin=f'{scheme}://{host}:{self.server.server_port}')
+                with self.subTest(origin=allowed['Origin']):
+                    self.assertEqual(self.call('POST', '/api/mdoc/request', {'origin': self.origin}, allowed)[0], 200)
+                for change in [{'X-VDC-Browser-Token': ''}, {'X-VDC-Browser-Token': 'wrong'},
+                               {'Sec-Fetch-Site': ''}, {'Sec-Fetch-Site': 'cross-site'}, {'Sec-Fetch-Site': 'same-site'},
+                               {'Origin': 'null'}, {'Origin': 'https://evil.example'},
+                               {'Origin': f'{scheme}://localhost:1'}]:
+                    with self.subTest(origin=allowed['Origin'], change=change):
+                        invalid = dict(allowed, **change, **{'X-Forwarded-Host': 'demo-8000.app.github.dev'})
+                        self.assertEqual(self.call('POST', '/api/mdoc/request', {'origin': self.origin}, invalid)[0], 400)
         # The JSON protocol origin stays bound to the public website even through the tunnel.
         self.assertEqual(self.call('POST', '/api/mdoc/request', {'origin': local}, headers)[0], 400)
 

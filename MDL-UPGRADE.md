@@ -132,7 +132,7 @@ iOS 常规测试检查固定 profile、Base64URL、来源校验和未授权启�
 
 已实测公网配置 origin 正确，但携带同一个公网 Origin 的 POST 仍被旧后端拒绝。这符合开发隧道改写 Origin 为内部 localhost 的行为；本地 HTTP 集成测试已覆盖这种情况。微软隧道项目的说明：[Origin 重写问题](https://github.com/microsoft/dev-tunnels/issues/284)。由于旧错误信息没有返回接收到的值，不能仅凭该错误断言某次请求的具体内部 Origin；新版拒绝信息会显示收到值和期望值。
 
-修复仍固定协议 origin 为公网 HTTPS，不使用客户端 Host 或 X-Forwarded 头改写它。只有 Origin 是当前监听端口的精确回环 HTTP 别名时，才额外检查：
+修复仍固定协议 origin 为公网 HTTPS，不使用客户端 Host 或 X-Forwarded 头改写它。只有 Origin 是当前监听端口的精确回环 HTTP 或 HTTPS 来源别名时，才额外检查：
 
 - 浏览器的 Sec-Fetch-Site 必须是 same-origin。
 - X-VDC-Browser-Token 必须匹配本次服务启动生成的随机令牌。
@@ -143,3 +143,5 @@ iOS 常规测试检查固定 profile、Base64URL、来源校验和未授权启�
 GET /api/mdoc/config 多一个字符串 browser_request_token，兼容 App 的字符串字典解析。iOS 无需修改。后端重启会更换网页令牌；更新后必须重新加载网页，不要继续使用重启前的页面。
 
 更新至少需要 server.py 与 static/app.js 一起生效：推送或上传新版，停止旧 Python，拉取代码并重启，然后在 iPhone Safari 关闭旧页面重新打开。仅 git pull 而不重启后端，或只更新 JS，都不能完成修复。新版本后端共 17 项测试通过；已有协议测试结果保留。
+
+实机错误现已确认隧道可能传递 `https://localhost:8000`。兼容规则已同时覆盖 HTTP/HTTPS 与精确监听端口，仍要求网页令牌和 same-origin 标记；这不要求把 Python 监听协议改成 HTTPS。新版错误仅显示令牌是否有效，不泄露令牌值。
