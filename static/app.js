@@ -1,6 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 let request = null, controller = null, expiryTimer = null, ready = false;
+let browserToken = '';
 
 function showStatus(message, kind = '') {
   $('status').textContent = message;
@@ -10,7 +11,7 @@ function showStatus(message, kind = '') {
 async function api(path, body) {
   const response = await fetch(path, {
     method: body === undefined ? 'GET' : 'POST',
-    headers: body === undefined ? {} : {'Content-Type': 'application/json'},
+    headers: body === undefined ? {} : {'Content-Type': 'application/json', 'X-VDC-Browser-Token': browserToken},
     body: body === undefined ? undefined : JSON.stringify(body),
     signal: AbortSignal.timeout(15000),
   });
@@ -34,15 +35,17 @@ async function initialize() {
   $('service-url').value = location.origin;
   try {
     const config = await api('/api/mdoc/config');
+    browserToken = config.browser_request_token || '';
     const secure = window.isSecureContext;
     const available = typeof DigitalCredential !== 'undefined' && !!navigator.credentials?.get;
     const protocol = available && typeof DigitalCredential.userAgentAllowsProtocol === 'function'
       ? await DigitalCredential.userAgentAllowsProtocol('org-iso-mdoc') : null;
     const sameOrigin = config.origin === location.origin;
     const sameProfile = config.doc_type === 'org.iso.18013.5.1.mDL' && config.namespace === 'org.iso.18013.5.1';
-    ready = secure && available && protocol !== false && sameOrigin && sameProfile;
+    ready = secure && available && protocol !== false && sameOrigin && sameProfile && !!browserToken;
     $('prepare').disabled = !ready;
     $('environment').textContent = !sameProfile ? '服务仍在运行旧配置，请更新并重启后端；本网页仅支持 mDL。'
+      : !browserToken ? '后端尚未提供网页校验令牌，请更新并重启服务后刷新网页。'
       : !sameOrigin ? '地址不一致，请用诊断信息中的服务端公开地址打开网页。'
       : !secure ? '需要 HTTPS。Codespaces 请打开 8000 端口的公网地址。'
       : !available || protocol === false ? '当前浏览器不支持所需入口，请改用兼容的 iOS 26+ Safari。'

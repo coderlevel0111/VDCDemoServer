@@ -79,6 +79,24 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.call('POST', '/api/missing', {})[0], 404)
         self.assertEqual(self.call('POST', '/api/mdoc/issue', {'holder_jwk': {'kty': 'EC', 'crv': 'P-256'}})[0], 400)
 
+    def test_tunnel_origin_requires_browser_token_and_same_origin_metadata(self):
+        _, _, data = self.call('GET', '/api/mdoc/config')
+        token = json.loads(data)['browser_request_token']
+        self.assertIsInstance(token, str)  # Preserve the native client's string-only config.
+        local = f'http://localhost:{self.server.server_port}'
+        headers = {'Origin': local, 'Sec-Fetch-Site': 'same-origin', 'X-VDC-Browser-Token': token}
+        status, _, data = self.call('POST', '/api/mdoc/request', {'origin': self.origin}, headers)
+        self.assertEqual(status, 200, data)
+        self.assertEqual(json.loads(data)['protocol'], 'org-iso-mdoc')
+        for change in [{'X-VDC-Browser-Token': ''}, {'X-VDC-Browser-Token': 'wrong'},
+                       {'Sec-Fetch-Site': ''}, {'Sec-Fetch-Site': 'cross-site'}, {'Sec-Fetch-Site': 'same-site'},
+                       {'Origin': 'null'}, {'Origin': 'https://evil.example'}, {'Origin': 'http://localhost:1'}]:
+            with self.subTest(change=change):
+                invalid = dict(headers, **change, **{'X-Forwarded-Host': 'demo-8000.app.github.dev'})
+                self.assertEqual(self.call('POST', '/api/mdoc/request', {'origin': self.origin}, invalid)[0], 400)
+        # The JSON protocol origin stays bound to the public website even through the tunnel.
+        self.assertEqual(self.call('POST', '/api/mdoc/request', {'origin': local}, headers)[0], 400)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

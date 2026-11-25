@@ -126,3 +126,20 @@ curl -fsS http://127.0.0.1:8000/api/mdoc/config | python3 -m json.tool
 后端新增固定 mDL 配置、旧类型拒绝和旧 namespace 拒绝测试；保留选择披露、篡改、设备换钥、错来源、重放、撤销、过期与 RFC 9180 HPKE 向量，共 16 项。
 
 iOS 常规测试检查固定 profile、Base64URL、来源校验和未授权启动时不错误读取注册列表。独立协议测试检查 Apple 原始请求解析及 Swift/Python 的 mDL 加密响应互通；完整 Safari 系统 UI 仍需你使用真实权限验收，不能由编译或协议测试代替。
+
+
+## 7. Codespaces 网页准备请求报来源不受信任
+
+已实测公网配置 origin 正确，但携带同一个公网 Origin 的 POST 仍被旧后端拒绝。这符合开发隧道改写 Origin 为内部 localhost 的行为；本地 HTTP 集成测试已覆盖这种情况。微软隧道项目的说明：[Origin 重写问题](https://github.com/microsoft/dev-tunnels/issues/284)。由于旧错误信息没有返回接收到的值，不能仅凭该错误断言某次请求的具体内部 Origin；新版拒绝信息会显示收到值和期望值。
+
+修复仍固定协议 origin 为公网 HTTPS，不使用客户端 Host 或 X-Forwarded 头改写它。只有 Origin 是当前监听端口的精确回环 HTTP 别名时，才额外检查：
+
+- 浏览器的 Sec-Fetch-Site 必须是 same-origin。
+- X-VDC-Browser-Token 必须匹配本次服务启动生成的随机令牌。
+- 令牌由同源配置接口返回，网页读取后随 POST 发送；该配置响应不允许跨域读取，跨站自定义请求头的预检也不获授权。
+
+这不是登录令牌，不是对开放演示 API 增加用户身份认证；非浏览器仍可按现有原生 API 调用。它用于防止为了兼容回环 Origin 而放宽浏览器跨站访问。非匹配来源、缺失/错误令牌、cross-site、same-site、错误端口和 null Origin 都会拒绝。协议请求正文的 origin、ReaderAuth 与加密会话仍绑定公网来源。
+
+GET /api/mdoc/config 多一个字符串 browser_request_token，兼容 App 的字符串字典解析。iOS 无需修改。后端重启会更换网页令牌；更新后必须重新加载网页，不要继续使用重启前的页面。
+
+更新至少需要 server.py 与 static/app.js 一起生效：推送或上传新版，停止旧 Python，拉取代码并重启，然后在 iPhone Safari 关闭旧页面重新打开。仅 git pull 而不重启后端，或只更新 JS，都不能完成修复。新版本后端共 17 项测试通过；已有协议测试结果保留。

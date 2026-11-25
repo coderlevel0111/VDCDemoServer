@@ -1,8 +1,10 @@
 """One-process Apple mdoc demo. Codespaces terminates public HTTPS for us."""
 import argparse
+import hmac
 import json
 import logging
 import os
+import secrets
 import sqlite3
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -43,6 +45,7 @@ class DemoServer(ThreadingHTTPServer):
         directory.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(directory / 'lab.sqlite', check_same_thread=False)
         self.lab = MDocLab(directory, self.db, origin)
+        self.browser_token = secrets.token_urlsafe(32)
         # ponytail: one demo process; use transactional storage if scaling to multiple workers.
         self.lock = threading.Lock()
         super().__init__(address, Handler)
@@ -83,7 +86,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.respond(200, {'ok': True})
         if path == '/api/mdoc/config':
             with self.server.lock:
-                return self.respond(200, self.server.lab.config())
+                return self.respond(200, dict(self.server.lab.config(), browser_request_token=self.server.browser_token))
         if path in ASSETS:
             name, kind = ASSETS[path]
             return self.respond(200, (ROOT / 'static' / name).read_bytes(), kind)
@@ -100,11 +103,18 @@ class Handler(BaseHTTPRequestHandler):
         if action is None:
             return self.respond(404, {'error': '接口不存在'})
         try:
-            # Compare with configured PUBLIC origin, not the internal HTTP socket or proxy headers.
-            # Native URLSession requests need no Origin header; browsers must match exactly.
+            # Dev tunnels may rewrite Origin to the local listening address. Accept that
+            # alias only with a same-origin browser token; never trust X-Forwarded-*.
+            # Native URLSession requests need no Origin header.
             origin = self.headers.get('Origin')
             if origin and origin != self.server.lab.origin:
-                raise ValueError('请求来源不受信任，请使用配置中的网站地址')
+                aliases = {f'http://{host}:{self.server.server_port}' for host in ('localhost', '127.0.0.1', '[::1]')}
+                token = self.headers.get('X-VDC-Browser-Token', '')
+                tunnel_browser = (origin in aliases
+                                  and self.headers.get('Sec-Fetch-Site') == 'same-origin'
+                                  and hmac.compare_digest(token, self.server.browser_token))
+                if not tunnel_browser:
+                    raise ValueError(f'请求来源不受信任：收到 {origin}，网站配置为 {self.server.lab.origin}。请使用配置地址并刷新网页后重试')
             if self.headers.get_content_type() != 'application/json':
                 raise ValueError('需要 application/json')
             length = int(self.headers.get('Content-Length', '0'))

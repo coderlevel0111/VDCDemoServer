@@ -76,3 +76,5 @@ PUBLIC_ORIGIN=https://demo.example sh ./run.sh --port 8000
 包含：官方 RFC 9180 P-256 HPKE 向量、合法选择披露、篡改/重放/换钥/错来源/撤销/过期拒绝、代理内层 HTTP 与外层 HTTPS、原生 App 无 Origin 头、非法输入及私有文件访问拒绝。
 
 本实现是单进程、单发行者、单文档的教学配置，不是通用钱包或 ISO 符合性认证产品。旧 JWT 辅助实验仅在原机器 `.archive/` 本地归档，不上传新仓库。网站上线和协议测试通过不等于 Apple entitlement 已获得或真机系统流程已验收。
+
+Codespaces 隧道改写 Origin 的受限兼容与网页刷新步骤见 [升级说明第 7 节](MDL-UPGRADE.md)。浏览器令牌与 same-origin 元数据仅用于回环别名校验，不改变协议公网来源。
